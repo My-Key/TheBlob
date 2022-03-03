@@ -80,5 +80,5 @@ public:
         return {x * scale, y * scale};
     }
 
-    operator VectorInt() const {return {round(x), round(y)};}
+    operator VectorInt() const {return {x, y};}
 };

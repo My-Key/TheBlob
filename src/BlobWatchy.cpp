@@ -4,11 +4,12 @@ const float VOLTAGE_MIN = 3.4;
 const float VOLTAGE_MAX = 4.2;
 const float VOLTAGE_RANGE = VOLTAGE_MAX - VOLTAGE_MIN;
 
-const int VECTOR_SIZE = 120;
+const int DENSITY = 2;
+const int VECTOR_SIZE = 60 * DENSITY;
 const double STEP_ANGLE = 360 / VECTOR_SIZE;
 
-const double STEP_MINUTE = VECTOR_SIZE/60;
-const double STEP_HOUR = VECTOR_SIZE/12;
+const int STEP_MINUTE = DENSITY;
+const int STEP_HOUR = VECTOR_SIZE/12;
 
 Vector EDGE_VECTORS[VECTOR_SIZE];
 Vector EDGE_NORMAL[VECTOR_SIZE];
@@ -30,38 +31,18 @@ static double smoothstep(double x) {
   return x * x * (3 - 2 * x);
 }
 
-void BlobWatchy::drawWatchFace()
+static void Indent(int distance, int centerIndex, double amount, double scale[], Vector normals[])
 {
-  display.fillScreen(GxEPD_WHITE);
-  display.setTextColor(GxEPD_BLACK);
-
-  double scale[VECTOR_SIZE];
-  Vector normals[VECTOR_SIZE];
-
-  for (int i = 0; i < VECTOR_SIZE; i++)
+  for (int i = -distance; i <= distance; i++)
   {
-    scale[i] = 1.0;
-    normals[i] = EDGE_NORMAL[i];
-  }
-
-  int hour = currentTime.Hour;
-  int minute = currentTime.Minute;
-  
-  int minuteIndex = minute * STEP_MINUTE;
-  int hourIndex = round((double)(hour % 12) + minute/60.0) * STEP_HOUR;
-
-  int minuteDistance = 4;
-
-  for (int i = -minuteDistance; i <= minuteDistance; i++)
-  {
-    int index = (i + minuteIndex + VECTOR_SIZE) % VECTOR_SIZE;
-    double strength = 0.35 * smoothstep(1 - abs(i / (double)minuteDistance));
+    int index = (i + centerIndex + VECTOR_SIZE) % VECTOR_SIZE;
+    double strength = amount * smoothstep(1 - abs(i / (double)distance));
     scale[index] -= strength;
   }
 
-  for (int i = -minuteDistance - 1; i <= minuteDistance + 1; i++)
+  for (int i = -distance - 1; i <= distance + 1; i++)
   {
-    int minuteToIndex = i + minuteIndex;
+    int minuteToIndex = i + centerIndex;
     int index = (minuteToIndex + VECTOR_SIZE) % VECTOR_SIZE;
     int prevIndex = (minuteToIndex - 1 + VECTOR_SIZE) % VECTOR_SIZE;
     int nextIndex = (minuteToIndex + 1 + VECTOR_SIZE) % VECTOR_SIZE;
@@ -83,54 +64,70 @@ void BlobWatchy::drawWatchFace()
 
     normals[index] = normal;
   }
+}
+
+void BlobWatchy::drawWatchFace()
+{
+  display.fillScreen(GxEPD_WHITE);
+  display.setTextColor(GxEPD_BLACK);
+
+  double scale[VECTOR_SIZE];
+  Vector normals[VECTOR_SIZE];
+
+  for (int i = 0; i < VECTOR_SIZE; i++)
+  {
+    scale[i] = 1.0;
+    normals[i] = EDGE_NORMAL[i];
+  }
+
+  int hour = currentTime.Hour;
+  int minute = currentTime.Minute;
+  
+  int minuteIndex = minute * STEP_MINUTE;
+  int hourIndex = round(((double)(hour % 12) + minute/60.0) * STEP_HOUR);
+
+  int minuteDistance = 4;
+  Indent(minuteDistance, minuteIndex, 0.35, scale, normals);
 
   int hourDistance = 10;
-
-  for (int i = -hourDistance; i <= hourDistance; i++)
-  {
-    int index = (i + hourIndex + VECTOR_SIZE) % VECTOR_SIZE;
-    double strength = 0.2 * smoothstep(1 - abs(i / (double)hourDistance));
-    scale[index] -= strength;
-  }
-
-  for (int i = -hourDistance - 1; i <= hourDistance + 1; i++)
-  {
-    int hourToIndex = i + hourIndex;
-    int index = (hourToIndex + VECTOR_SIZE) % VECTOR_SIZE;
-    int prevIndex = (hourToIndex - 1 + VECTOR_SIZE) % VECTOR_SIZE;
-    int nextIndex = (hourToIndex + 1 + VECTOR_SIZE) % VECTOR_SIZE;
-
-    Vector v0 = EDGE_VECTORS[prevIndex] * scale[prevIndex];
-    Vector v1 = EDGE_VECTORS[index] * scale[index];
-    Vector v2 = EDGE_VECTORS[nextIndex] * scale[nextIndex];
-
-    Vector normal1 = v0 - v1;
-    normal1.normalize();
-    normal1 = Vector::rotateVectorByRightAngle(normal1, 1);
-
-    Vector normal2 = v1 - v2;
-    normal2.normalize();
-    normal2 = Vector::rotateVectorByRightAngle(normal2, 1);
-
-    Vector normal = normal1 + normal2;
-    normal.normalize();
-
-    normals[index] = normal;
-  }
+  Indent(hourDistance, hourIndex, 0.2, scale, normals);
 
   Vector center = {100,100};
   double batteryFill = getBatteryFill();
   double batteryFillScale = 0.35 + 0.65 * batteryFill;
 
+  int radius = 99;
+
+  display.drawCircle(center.x, center.y, radius * 0.4, GxEPD_BLACK);
+
+  for (int i = 0; i < VECTOR_SIZE; i += STEP_MINUTE)
+  {
+    Vector v1 = EDGE_VECTORS[i] * (radius) + center;
+    Vector v2 = EDGE_VECTORS[i] * (radius * 0.7) + center;
+
+    display.drawLine(v1.x, v1.y, v2.x, v2.y, GxEPD_BLACK);
+  }
+  
+  for (int i = 0; i < VECTOR_SIZE; i += STEP_HOUR)
+  {
+    Vector v1 = EDGE_VECTORS[i] * (radius) + center;
+    Vector v2 = EDGE_VECTORS[i] * (radius * 0.9) + center;
+
+    display.drawLine(v1.x + 1, v1.y, v2.x + 1, v2.y, GxEPD_BLACK);
+    display.drawLine(v1.x - 1, v1.y, v2.x - 1, v2.y, GxEPD_BLACK);
+    display.drawLine(v1.x, v1.y + 1, v2.x, v2.y + 1, GxEPD_BLACK);
+    display.drawLine(v1.x, v1.y - 1, v2.x, v2.y - 1, GxEPD_BLACK);
+  }
+
   for (int i = 0; i < VECTOR_SIZE; i++)
   {
     int nextIndex = (i + 1) % VECTOR_SIZE;
-    Vector v1 = EDGE_VECTORS[i] * (99 * scale[i] * batteryFillScale) + center;
-    Vector uv1 = normals[i] * 99 + center;
-    Vector v2 = EDGE_VECTORS[nextIndex] * (99 * scale[nextIndex] * batteryFillScale) + center;
-    Vector uv2 = normals[nextIndex] * 99 + center;
+    Vector v1 = EDGE_VECTORS[i] * (radius * scale[i] * batteryFillScale) + center;
+    Vector uv1 = normals[i] * radius + center;
+    Vector v2 = EDGE_VECTORS[nextIndex] * (radius * scale[nextIndex] * batteryFillScale) + center;
+    Vector uv2 = normals[nextIndex] * radius + center;
 
-    fillTriangle(center, center, v1, uv1, v2, uv2, epd_bitmap_MatCap, 200, 200);
+    fillTriangle(center, center, v1, uv1, v2, uv2, epd_bitmap_MatCap2, 200, 200);
     display.drawLine(v1.x, v1.y, v2.x, v2.y, GxEPD_BLACK);
   }
 
@@ -199,6 +196,33 @@ static void barycentric(VectorInt p, VectorInt a, VectorInt b, VectorInt c, doub
     u = 1.0f - v - w;
 }
 
+static double clamp(double val, double min, double max)
+{
+  if (val > max)
+    val = max;
+  
+  if (val < min)
+    val = min;
+
+  return val;
+}
+
+static void barycentric2(VectorInt p, VectorInt v0, VectorInt v1, VectorInt a, double invDen, double &u, double &v, double &w)
+{
+    VectorInt v2 = p - a;
+    /*double d00 = VectorInt::dotProduct(v0, v0);
+    double d01 = VectorInt::dotProduct(v0, v1);
+    double d11 = VectorInt::dotProduct(v1, v1);
+    double d20 = VectorInt::dotProduct(v2, v0);
+    double d21 = VectorInt::dotProduct(v2, v1);
+    double denom = d00 * d11 - d01 * d01;
+    v = (d11 * d20 - d01 * d21) / denom;
+    w = (d00 * d21 - d01 * d20) / denom;*/
+    v = (v2.x * v1.y - v1.x * v2.y) * invDen;
+    w = (v0.x * v2.y - v2.x * v0.y) * invDen;
+    u = 1.0f - v - w;
+}
+
 
 static bool getColor(int16_t x, int16_t y, const uint8_t *bitmap, int16_t w, int16_t h) 
 {
@@ -208,11 +232,31 @@ static bool getColor(int16_t x, int16_t y, const uint8_t *bitmap, int16_t w, int
 
 void BlobWatchy::drawLine(int x, int y, int w, VectorInt v0, Vector uv0, VectorInt v1, Vector uv1, VectorInt v2, Vector uv2, const uint8_t *bitmap, int16_t bw, int16_t bh)
 {
+  VectorInt a = v1 - v0, b = v2 - v0;
+  double den = a.x * b.y - b.x * a.y;
+  double invDen = 1 / den;
+
   for (int i = 0; i < w; i++)
   {
     double ua, va, wa;
     VectorInt pointA = {x + i, y};
-    barycentric(pointA, v0, v1, v2, ua, va, wa);
+    barycentric2(pointA, a, b, v0, invDen, ua, va, wa);
+
+    Vector uv = uv0 * ua + uv1 * va + uv2 * wa;
+
+    bool white = getColor(uv.x, uv.y, bitmap, bw, bh);
+    //bool white = (int)(uv.x / 8) % 2 > (int)(uv.y / 8)%2;
+    display.drawPixel(x + i, y, white ? GxEPD_WHITE : GxEPD_BLACK);
+  }
+}
+
+void BlobWatchy::drawLine2(int x, int y, int w, VectorInt v0, Vector uv0, VectorInt a, Vector uv1, VectorInt b, Vector uv2, double invDen, const uint8_t *bitmap, int16_t bw, int16_t bh)
+{
+  for (int i = 0; i < w; i++)
+  {
+    double ua, va, wa;
+    VectorInt pointA = {x + i, y};
+    barycentric2(pointA, a, b, v0, invDen, ua, va, wa);
 
     Vector uv = uv0 * ua + uv1 * va + uv2 * wa;
 
@@ -245,7 +289,7 @@ void BlobWatchy::fillTriangle(VectorInt v0, Vector uv0, VectorInt v1, Vector uv1
   if (v0.y == v2.y) { // Handle awkward all-on-same-line case as its own thing
     a = b = v0.x;
     uvA = uv0;
-    uvB = uv2;
+    uvB = uv0;
 
     if (v1.x < a)
     {
@@ -273,12 +317,10 @@ void BlobWatchy::fillTriangle(VectorInt v0, Vector uv0, VectorInt v1, Vector uv1
     return;
   }
 
-  int16_t dx01 = v1.x - v0.x, dy01 = v1.y - v0.y, dx02 = v2.x - v0.x, dy02 = v2.y - v0.y,
+  int16_t dx01 = v1.x - v0.x, dy01 = v1.y - v0.y, 
+          dx02 = v2.x - v0.x, dy02 = v2.y - v0.y,
           dx12 = v2.x - v1.x, dy12 = v2.y - v1.y;
   int32_t sa = 0, sb = 0;
-
-  uvA = uv0;
-  uvB = uv0;
 
   // For upper part of triangle, find scanline crossings for segments
   // 0-1 and 0-2.  If y1=y2 (flat-bottomed triangle), the scanline y1
@@ -290,6 +332,10 @@ void BlobWatchy::fillTriangle(VectorInt v0, Vector uv0, VectorInt v1, Vector uv1
     last = v1.y; // Include y1 scanline
   else
     last = v1.y - 1; // Skip it
+
+    
+  VectorInt aa = v1 - v0, bb = v2 - v0;
+  double invDen = 1 / VectorInt::crossProduct(aa, bb);
 
   for (y = v0.y; y <= last; y++) {
     a = v0.x + sa / dy01;
@@ -304,13 +350,9 @@ void BlobWatchy::fillTriangle(VectorInt v0, Vector uv0, VectorInt v1, Vector uv1
     b = x0 + (x2 - x0) * (y - y0) / (y2 - y0);
     */
     if (a > b)
-    {
       _swap_int16_t(a, b);
-      //_swap_vector(uvA, uvB);
-    }
 
-    drawLine(a, y, b - a + 1, v0, uv0, v1, uv1, v2, uv2, bitmap, w, h);
-    //writeFastHLineUV(a, y, b - a + 1, uvA, uvB, bitmap, w, h);
+    drawLine2(a, y, b - a + 1, v0, uv0, aa, uv1, bb, uv2, invDen, bitmap, w, h);
   }
 
   // For lower part of triangle, find scanline crossings for segments
@@ -329,13 +371,9 @@ void BlobWatchy::fillTriangle(VectorInt v0, Vector uv0, VectorInt v1, Vector uv1
     b = x0 + (x2 - x0) * (y - y0) / (y2 - y0);
     */
     if (a > b)
-    {
       _swap_int16_t(a, b);
-      //_swap_vector(uvA, uvB);
-    }
 
-    drawLine(a, y, b - a + 1, v0, uv0, v1, uv1, v2, uv2, bitmap, w, h);
-    //writeFastHLineUV(a, y, b - a + 1, uvA, uvB, bitmap, w, h);
+    drawLine2(a, y, b - a + 1, v0, uv0, aa, uv1, bb, uv2, invDen, bitmap, w, h);
   }
   display.endWrite();
 }
