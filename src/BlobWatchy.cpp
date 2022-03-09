@@ -11,6 +11,23 @@ const double STEP_ANGLE = 360 / VECTOR_SIZE;
 const int STEP_MINUTE = DENSITY;
 const int STEP_HOUR = VECTOR_SIZE/12;
 
+const Vector CENTER = {100,100};
+const int RADIUS = 99;
+const int BLOB_RADIUS = 90;
+
+const int HOUR_INDENT_DISTANCE = 10;
+const double HOUR_INDENT_STRENGTH = 0.2;
+
+const int MINUTE_INDENT_DISTANCE = 4;
+const double MINUTE_INDENT_STRENGTH = 0.35;
+
+const double BATTERY_MIN = 0.35;
+const double BATTERY_WARNING = 0.4;
+const double BATTERY_RANGE = 1.0 - BATTERY_MIN;
+
+const double HOUR_TICK = 1 - 0.1;
+const double MINUTE_TICK = 1 - 0.3;
+
 const unsigned char DITHER_MASK [] PROGMEM = {
 	0, 32, 8, 40, 2, 34, 10, 42,
   48, 46, 56, 24, 50, 18, 58, 26,
@@ -97,50 +114,43 @@ void BlobWatchy::drawWatchFace()
   int minuteIndex = minute * STEP_MINUTE;
   int hourIndex = round(((double)(hour % 12) + minute/60.0) * STEP_HOUR);
 
-  int minuteDistance = 4;
-  Indent(minuteDistance, minuteIndex, 0.35, scale, normals);
+  Indent(MINUTE_INDENT_DISTANCE, minuteIndex, MINUTE_INDENT_STRENGTH, scale, normals);
 
-  int hourDistance = 10;
-  Indent(hourDistance, hourIndex, 0.2, scale, normals);
+  Indent(HOUR_INDENT_DISTANCE, hourIndex, HOUR_INDENT_STRENGTH, scale, normals);
 
-  Vector center = {100,100};
   double batteryFill = getBatteryFill();
-  double batteryFillScale = 0.35 + 0.65 * batteryFill;
-
-  int radius = 99;
+  double batteryFillScale = BATTERY_MIN +BATTERY_RANGE * batteryFill;
 
   for (int i = 0; i < VECTOR_SIZE; i += STEP_MINUTE)
   {
-    Vector v1 = EDGE_VECTORS[i] * (radius) + center;
-    Vector v2 = EDGE_VECTORS[i] * (radius * 0.7) + center;
+    Vector v1 = EDGE_VECTORS[i] * (RADIUS) + CENTER;
+    Vector v2 = EDGE_VECTORS[i] * (RADIUS * MINUTE_TICK) + CENTER;
 
     display.drawLine(v1.x, v1.y, v2.x, v2.y, GxEPD_BLACK);
   }
 
   for (int i = 0; i < VECTOR_SIZE; i += STEP_HOUR)
   {
-    Vector v1 = EDGE_VECTORS[i] * (radius) + center;
-    Vector v2 = EDGE_VECTORS[i] * (radius * 0.9) + center;
+    Vector v1 = EDGE_VECTORS[i] * (RADIUS) + CENTER;
+    Vector v2 = EDGE_VECTORS[i] * (RADIUS * HOUR_TICK) + CENTER;
 
     display.drawLine(v1.x + 1, v1.y, v2.x + 1, v2.y, GxEPD_BLACK);
     display.drawLine(v1.x - 1, v1.y, v2.x - 1, v2.y, GxEPD_BLACK);
     display.drawLine(v1.x, v1.y + 1, v2.x, v2.y + 1, GxEPD_BLACK);
     display.drawLine(v1.x, v1.y - 1, v2.x, v2.y - 1, GxEPD_BLACK);
   }
-  
-  int blobSize = 90;
 
-  display.drawCircle(center.x, center.y, blobSize * 0.4, GxEPD_BLACK);
+  display.drawCircle(CENTER.x, CENTER.y, BLOB_RADIUS * BATTERY_WARNING, GxEPD_BLACK);
 
   for (int i = 0; i < VECTOR_SIZE; i++)
   {
     int nextIndex = (i + 1) % VECTOR_SIZE;
-    Vector v1 = EDGE_VECTORS[i] * (blobSize * scale[i] * batteryFillScale) + center;
-    Vector uv1 = normals[i] * radius + center;
-    Vector v2 = EDGE_VECTORS[nextIndex] * (blobSize * scale[nextIndex] * batteryFillScale) + center;
-    Vector uv2 = normals[nextIndex] * radius + center;
+    Vector v1 = EDGE_VECTORS[i] * (BLOB_RADIUS * scale[i] * batteryFillScale) + CENTER;
+    Vector uv1 = normals[i] * RADIUS + CENTER;
+    Vector v2 = EDGE_VECTORS[nextIndex] * (BLOB_RADIUS * scale[nextIndex] * batteryFillScale) + CENTER;
+    Vector uv2 = normals[nextIndex] * RADIUS + CENTER;
 
-    fillTriangle(center, center, v1, uv1, v2, uv2, MatCapSource, 200, 200);
+    fillTriangle(CENTER, CENTER, v1, uv1, v2, uv2, MatCapSource, 200, 200);
     display.drawLine(v1.x, v1.y, v2.x, v2.y, GxEPD_BLACK);
   }
 }
