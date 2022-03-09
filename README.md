@@ -16,6 +16,14 @@ I implemented Watchy Sundial using the [platformIO](https://platformio.org/) ext
 I even added a `min_spiffs.csv` file and referenced it in the `platformio.ini`, which I think assures the compiler there's enough space on the ESP32 for all those bitmaps and stuff.  
 What I want to say is: it's entirely possible platformIO will just compile and upload the code to your Watchy (but see right below first!).
 
+## pic2array
+
+Converts image into 8bit monochrome byte array.
+
+It requires 2 parameters:
+- source image
+- output path
+
 ## Thanks and contributions
 
 ### mehtmehtsen - creator of BotWatchy face
