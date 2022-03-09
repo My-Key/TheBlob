@@ -4,6 +4,7 @@
 #include "../include/images.h"
 #include "../include/EMPORO9pt7b.h"
 #include "../include/EMPORO13pt7b.h"
+#include "../include/MatCapSource.h"
 #include "Vector.h"
 
 class BlobWatchy : public Watchy
