@@ -4,6 +4,7 @@
 #include "../include/images.h"
 #include "../include/MatCapSource.h"
 #include "Vector.h"
+#include "../include/BlueNoise200.h"
 
 class BlobWatchy : public Watchy
 {

@@ -59,36 +59,47 @@ static double smoothstep(double x) {
   return x * x * (3 - 2 * x);
 }
 
-static void Indent(int distance, int centerIndex, double amount, double scale[], Vector normals[])
+static void Indent(int distance, int centerIndex, double amount, double scale[])
 {
-  for (int i = -distance; i <= distance; i++)
+  double divider = 1 / (double)distance;
+
+  for (int i = -distance + 1; i < distance; i++)
   {
     int index = (i + centerIndex + VECTOR_SIZE) % VECTOR_SIZE;
-    double strength = amount * smoothstep(1 - abs(i / (double)distance));
+    double strength = amount * smoothstep(1 - abs(i * divider));
     scale[index] -= strength;
   }
+}
 
-  for (int i = -distance - 1; i <= distance + 1; i++)
+static void RecalculateNormal(int start, int length, double scale[], Vector normals[])
+{
+  int startIndex = (start + VECTOR_SIZE) % VECTOR_SIZE;
+  int prevIndex = (start - 1 + VECTOR_SIZE) % VECTOR_SIZE;
+
+  Vector prevVector = EDGE_VECTORS[prevIndex] * scale[prevIndex];
+  Vector startVector = EDGE_VECTORS[startIndex] * scale[startIndex];
+  
+  Vector prevNormal = prevVector - startVector;
+  prevNormal.normalize();
+  prevNormal = Vector::rotateVectorByRightAngle(prevNormal, 1);
+
+  for (int i = 0; i < length + 1; i++)
   {
-    int minuteToIndex = i + centerIndex;
+    int minuteToIndex = i + start;
     int index = (minuteToIndex + VECTOR_SIZE) % VECTOR_SIZE;
-    int prevIndex = (minuteToIndex - 1 + VECTOR_SIZE) % VECTOR_SIZE;
     int nextIndex = (minuteToIndex + 1 + VECTOR_SIZE) % VECTOR_SIZE;
 
-    Vector v0 = EDGE_VECTORS[prevIndex] * scale[prevIndex];
     Vector v1 = EDGE_VECTORS[index] * scale[index];
     Vector v2 = EDGE_VECTORS[nextIndex] * scale[nextIndex];
 
-    Vector normal1 = v0 - v1;
-    normal1.normalize();
-    normal1 = Vector::rotateVectorByRightAngle(normal1, 1);
+    Vector nextNormal = v1 - v2;
+    nextNormal.normalize();
+    nextNormal = Vector::rotateVectorByRightAngle(nextNormal, 1);
 
-    Vector normal2 = v1 - v2;
-    normal2.normalize();
-    normal2 = Vector::rotateVectorByRightAngle(normal2, 1);
-
-    Vector normal = normal1 + normal2;
+    Vector normal = prevNormal + nextNormal;
     normal.normalize();
+
+    prevNormal = nextNormal;
 
     normals[index] = normal;
   }
@@ -114,9 +125,29 @@ void BlobWatchy::drawWatchFace()
   int minuteIndex = minute * STEP_MINUTE;
   int hourIndex = round(((double)(hour % 12) + minute/60.0) * STEP_HOUR);
 
-  Indent(MINUTE_INDENT_DISTANCE, minuteIndex, MINUTE_INDENT_STRENGTH, scale, normals);
+  Indent(MINUTE_INDENT_DISTANCE, minuteIndex, MINUTE_INDENT_STRENGTH, scale);
 
-  Indent(HOUR_INDENT_DISTANCE, hourIndex, HOUR_INDENT_STRENGTH, scale, normals);
+  Indent(HOUR_INDENT_DISTANCE, hourIndex, HOUR_INDENT_STRENGTH, scale);
+  
+  int minuteStart = minuteIndex - MINUTE_INDENT_DISTANCE;
+  int minuteEnd = minuteIndex + MINUTE_INDENT_DISTANCE;
+
+  int hourStart = hourIndex - HOUR_INDENT_DISTANCE;
+  int hourEnd = hourIndex + HOUR_INDENT_DISTANCE;
+
+  // If ranges overlap, only one recalculation can be done
+  if (minuteStart <= hourEnd && minuteStart >= hourStart || hourStart <= minuteEnd && hourStart >= minuteStart)
+  {
+    int start = min(minuteStart, hourStart);
+    int end = min(minuteEnd, hourEnd);
+
+    RecalculateNormal(start, end - start, scale, normals);
+  }
+  else
+  {
+    RecalculateNormal(minuteStart, minuteEnd - minuteStart, scale, normals);
+    RecalculateNormal(hourStart, hourEnd - hourStart, scale, normals);
+  }
 
   double batteryFill = getBatteryFill();
   double batteryFillScale = BATTERY_MIN +BATTERY_RANGE * batteryFill;
@@ -202,7 +233,7 @@ static void barycentric(VectorInt p, VectorInt a, VectorInt b, VectorInt c, doub
     float den = v0.x * v1.y - v1.x * v0.y;
     v = (v2.x * v1.y - v1.x * v2.y) / den;
     w = (v0.x * v2.y - v2.x * v0.y) / den;
-    u = 1.0f - v - w;
+    u = 1.0 - v - w;
 }
 
 static double clamp(double val, double min, double max)
@@ -221,13 +252,13 @@ static void barycentric2(VectorInt p, VectorInt v0, VectorInt v1, VectorInt a, d
     VectorInt v2 = p - a;
     v = (v2.x * v1.y - v1.x * v2.y) * invDen;
     w = (v0.x * v2.y - v2.x * v0.y) * invDen;
-    u = 1.0f - v - w;
+    u = 1.0 - v - w;
 }
 
 
 static bool getColor(int16_t x, int16_t y, int16_t xUv, int16_t yUv, const uint8_t *bitmap, int16_t w, int16_t h) 
 {
-  return bitmap[yUv * w + xUv] > DITHER_MASK[(y % 8) * 8 + x % 8] * 4;
+  return bitmap[yUv * w + xUv] > BlueNoise200[y * 200 + x];
 }
 
 void BlobWatchy::drawLine(int x, int y, int w, VectorInt v0, Vector uv0, VectorInt v1, Vector uv1, VectorInt v2, Vector uv2, const uint8_t *bitmap, int16_t bw, int16_t bh)
