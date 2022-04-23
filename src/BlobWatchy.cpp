@@ -2,6 +2,7 @@
 
 const float VOLTAGE_MIN = 3.4;
 const float VOLTAGE_MAX = 4.2;
+const float VOLTAGE_WARNING = 3.5;
 const float VOLTAGE_RANGE = VOLTAGE_MAX - VOLTAGE_MIN;
 
 const int DENSITY = 2;
@@ -21,9 +22,9 @@ const double HOUR_INDENT_STRENGTH = 0.2;
 const int MINUTE_INDENT_DISTANCE = 4;
 const double MINUTE_INDENT_STRENGTH = 0.35;
 
-const double BATTERY_MIN = 0.35;
-const double BATTERY_WARNING = 0.4;
+const double BATTERY_MIN = 0.5;
 const double BATTERY_RANGE = 1.0 - BATTERY_MIN;
+const double BATTERY_WARNING = BATTERY_MIN + ((VOLTAGE_WARNING - VOLTAGE_MIN) / VOLTAGE_RANGE) * BATTERY_RANGE;
 
 const double HOUR_TICK = 1 - 0.1;
 const double MINUTE_TICK = 1 - 0.3;
@@ -150,7 +151,7 @@ void BlobWatchy::drawWatchFace()
   }
 
   double batteryFill = getBatteryFill();
-  double batteryFillScale = BATTERY_MIN +BATTERY_RANGE * batteryFill;
+  double batteryFillScale = BATTERY_MIN + BATTERY_RANGE * batteryFill;
 
   for (int i = 0; i < VECTOR_SIZE; i += STEP_MINUTE)
   {
@@ -250,6 +251,7 @@ static double clamp(double val, double min, double max)
 static void barycentric2(VectorInt p, VectorInt v0, VectorInt v1, VectorInt a, double invDen, double &u, double &v, double &w)
 {
     VectorInt v2 = p - a;
+    // ToDo: Premultiply v0 and v1 by invDen?
     v = (v2.x * v1.y - v1.x * v2.y) * invDen;
     w = (v0.x * v2.y - v2.x * v0.y) * invDen;
     u = 1.0 - v - w;
