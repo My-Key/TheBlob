@@ -22,25 +22,6 @@
 #define NTP_SERVER "pool.ntp.org"
 #define GMT_OFFSET_SEC 3600 * -5 //New York is UTC -5 EST, -4 EDT, will be overwritten by weather data
 
-
-//typedef struct watchySettings {
-//  // Weather Settings
-//  String cityID;
-//  String lat;
-//  String lon;
-//  String weatherAPIKey;
-//  String weatherURL;
-//  String weatherUnit;
-//  String weatherLang;
-//  int8_t weatherUpdateInterval;
-//  // NTP Settings
-//  String ntpServer;
-//  int gmtOffset;
-//  //
-//  bool vibrateOClock;
-//} watchySettings;
-
-
 watchySettings settings{
     #ifdef CITY_ID
         .cityID = CITY_ID,
